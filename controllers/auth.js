@@ -8,6 +8,22 @@ const User = require("../models/user");
 exports.register = asyncHandler(async (req, res, next) => {
   const { name, email, password } = req.body;
 
+  if (!email || !password) {
+    return next(new ErrorResponse("Email and password are required.", 422));
+  }
+
+  User.findOne({ email: email }, (err, existingUser) => {
+    // Check for database connection error
+    if (err) {
+      return next(err);
+    }
+
+    // Check if email already in use and return an error message
+    if (existingUser) {
+      return next(new ErrorResponse("Email already in use.", 422));
+    }
+  });
+
   //Create user
   const user = await User.create({
     name,
@@ -39,18 +55,19 @@ exports.login = asyncHandler(async (req, res, next) => {
   }).select("+password");
 
   if (!user) {
-    return next(new ErrorResponse("invalid credentials", 401));
+    return next(new ErrorResponse("Invalid credentials", 401));
   }
 
   // Check if password matches
   const isMatch = await user.matchPassword(password);
   if (!isMatch) {
-    return next(new ErrorResponse("Invalid cretendials", 401));
+    return next(new ErrorResponse("Invalid credentials", 401));
   }
 
   sendTokenResponse(user, 200, res);
 });
 
+// Get token from model, create cookie and send response
 const sendTokenResponse = (user, statusCode, res) => {
   const token = user.getSignedJwtToken();
 
